@@ -1,0 +1,8 @@
+
+> intellitrack@0.1.0 db:seed
+> tsx prisma/seed.ts
+
+Seeded 3 regions, 5 warehouses, 3 carriers, 15 drivers, 200 deliveries, 30 exceptions.
+Demo logins (password: demo1234):
+  driver1@demo.com, warehouse1@demo.com, regional1@demo.com,
+  customerservice1@demo.com, leadership1@demo.com, customer1@demo.com

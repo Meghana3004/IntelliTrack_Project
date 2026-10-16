@@ -1,0 +1,199 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id @default(cuid())
+  name         String
+  email        String   @unique
+  passwordHash String
+  role         Role
+  warehouseId  String?
+  regionId     String?
+  createdAt    DateTime @default(now())
+}
+
+enum Role {
+  DRIVER
+  WAREHOUSE_MANAGER
+  REGIONAL_MANAGER
+  CUSTOMER_SERVICE
+  LEADERSHIP
+  CUSTOMER
+}
+
+model Region {
+  id         String      @id @default(cuid())
+  name       String
+  warehouses Warehouse[]
+}
+
+model Warehouse {
+  id       String @id @default(cuid())
+  name     String
+  regionId String
+  region   Region @relation(fields: [regionId], references: [id])
+  lat      Float
+  lng      Float
+}
+
+model Carrier {
+  id      String      @id @default(cuid())
+  name    String
+  type    CarrierType
+  drivers Driver[]
+}
+
+enum CarrierType {
+  INTERNAL
+  THIRD_PARTY
+}
+
+model Vehicle {
+  id        String @id @default(cuid())
+  plate     String
+  carrierId String
+  type      String
+}
+
+model Driver {
+  id        String  @id @default(cuid())
+  userId    String  @unique
+  carrierId String
+  carrier   Carrier @relation(fields: [carrierId], references: [id])
+  vehicleId String?
+}
+
+model Route {
+  id        String @id @default(cuid())
+  name      String
+  originLat Float
+  originLng Float
+  destLat   Float
+  destLng   Float
+  waypoints String // JSON array of {lat,lng}
+}
+
+model Delivery {
+  id                String             @id @default(cuid())
+  qrCode            String             @unique
+  customerId        String
+  originWarehouseId String
+  destWarehouseId   String
+  driverId          String?
+  carrierId         String
+  routeId           String?
+  status            String // SCHEDULED | IN_TRANSIT | DELIVERED | EXCEPTION
+  scheduledEta      DateTime
+  actualEta         DateTime?
+  gpsPings          GpsPing[]
+  exceptions        Exception[]
+  feedback          CustomerFeedback[]
+  signature         Signature?
+}
+
+model GpsPing {
+  id         String   @id @default(cuid())
+  deliveryId String
+  delivery   Delivery @relation(fields: [deliveryId], references: [id])
+  lat        Float
+  lng        Float
+  timestamp  DateTime
+}
+
+model Exception {
+  id              String             @id @default(cuid())
+  deliveryId      String
+  delivery        Delivery           @relation(fields: [deliveryId], references: [id])
+  type            String // DELAYED | DAMAGED | REJECTED
+  description     String
+  severity        String? // NONE | MINOR | MODERATE | SEVERE
+  slaStatus       String // WITHIN_SLA | BREACHED
+  photoUrls       String // JSON array of strings
+  gpsLat          Float?
+  gpsLng          Float?
+  status          String // OPEN | IN_REVIEW | ESCALATED | RESOLVED
+  assignedTo      String?
+  resolutionNotes String?
+  aiSummary       String?
+  aiSeverityScore Float?
+  riskScore       Float?
+  recommendations AIRecommendation[]
+  createdAt       DateTime           @default(now())
+}
+
+model AIRecommendation {
+  id            String    @id @default(cuid())
+  exceptionId   String
+  exception     Exception @relation(fields: [exceptionId], references: [id])
+  type          String // REDISPATCH | ALT_WAREHOUSE | ALT_DRIVER | COMPENSATION
+  details       String
+  justification String
+  accepted      Boolean   @default(false)
+}
+
+model Notification {
+  id                 String   @id @default(cuid())
+  userId             String
+  type               String
+  message            String
+  relatedExceptionId String?
+  read               Boolean  @default(false)
+  createdAt          DateTime @default(now())
+}
+
+model CustomerFeedback {
+  id         String   @id @default(cuid())
+  deliveryId String
+  delivery   Delivery @relation(fields: [deliveryId], references: [id])
+  rating     Int
+  comment    String?
+}
+
+model Signature {
+  id         String   @id @default(cuid())
+  deliveryId String   @unique
+  delivery   Delivery @relation(fields: [deliveryId], references: [id])
+  dataUrl    String
+  signedAt   DateTime @default(now())
+}
+
+model SupportTicket {
+  id          String          @id @default(cuid())
+  customerId  String
+  deliveryId  String?
+  exceptionId String?
+  type        String // DAMAGE_COMPLAINT | REJECTION | RETURN_REQUEST | GENERAL_SUPPORT
+  subject     String
+  status      String // OPEN | IN_PROGRESS | RESOLVED
+  messages    TicketMessage[]
+  createdAt   DateTime        @default(now())
+}
+
+model TicketMessage {
+  id         String        @id @default(cuid())
+  ticketId   String
+  ticket     SupportTicket @relation(fields: [ticketId], references: [id])
+  senderRole Role
+  senderId   String
+  message    String
+  createdAt  DateTime      @default(now())
+}
+
+model CallbackRequest {
+  id          String   @id @default(cuid())
+  customerId  String
+  phone       String
+  reason      String
+  status      String // PENDING | COMPLETED
+  requestedAt DateTime @default(now())
+}
